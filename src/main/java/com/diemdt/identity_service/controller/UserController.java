@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,6 +39,8 @@ public class UserController {
     @GetMapping
     public ApiResponse<Page<UserResponse>> findAll(@PageableDefault(size = 10)Pageable pageable){
         ApiResponse apiResponse = new ApiResponse<>();
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
 
         apiResponse.setCode(200);
         apiResponse.setResult(userService.findAll(pageable));

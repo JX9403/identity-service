@@ -4,6 +4,7 @@ import com.diemdt.identity_service.dto.request.UserCreationRequest;
 import com.diemdt.identity_service.dto.request.UserUpdateRequest;
 import com.diemdt.identity_service.dto.response.UserResponse;
 import com.diemdt.identity_service.entity.User;
+import com.diemdt.identity_service.enums.Role;
 import com.diemdt.identity_service.exception.AppException;
 import com.diemdt.identity_service.exception.ErrorCode;
 import com.diemdt.identity_service.mapper.UserMapper;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,16 +27,20 @@ public class UserService {
 
     private final  UserRepository userRepository ;
     private final UserMapper userMapper ;
+    private final PasswordEncoder passwordEncoder;
 
     public UserResponse create(UserCreationRequest request ){
         if(userRepository.existsByUsername(request.getUsername())){
             throw new AppException(ErrorCode.USER_EXISTS_EXCEPTION);
         }
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-
         User user = userMapper.toEntity(request);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+
+        List<String> roles = new ArrayList<>();
+        roles.add(Role.USER.name());
+
+        user.setRoles(roles);
         User savedUser = userRepository.save(user);
 
     return userMapper.toDTO(savedUser);
