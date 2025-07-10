@@ -1,13 +1,11 @@
 package com.diemdt.identity_service.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -25,6 +23,8 @@ public class User {
     private String firstName ;
     private String lastName ;
     private LocalDate dob ;
-    private List<String> roles ;
+
+    @ManyToMany
+    private Set<Role> roles ;
 
 }
