@@ -1,6 +1,7 @@
 package com.diemdt.identity_service.dto.request;
 
 import com.diemdt.identity_service.exception.ErrorCode;
+import com.diemdt.identity_service.validator.DobConstraint;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,6 +23,8 @@ public class UserCreationRequest {
     private String password ;
     private String firstName ;
     private String lastName ;
+
+    @DobConstraint(min = 18)
     private LocalDate dob ;
     List<String> roles ;
 }

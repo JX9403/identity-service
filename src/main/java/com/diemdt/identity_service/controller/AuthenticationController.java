@@ -2,6 +2,7 @@ package com.diemdt.identity_service.controller;
 
 import com.diemdt.identity_service.dto.request.AuthenticationRequest;
 import com.diemdt.identity_service.dto.request.IntrospectRequest;
+import com.diemdt.identity_service.dto.request.LogoutRequest;
 import com.diemdt.identity_service.dto.response.ApiResponse;
 import com.diemdt.identity_service.dto.response.AuthenticationResponse;
 import com.diemdt.identity_service.dto.response.IntrospectResponse;
@@ -22,11 +23,19 @@ public class AuthenticationController {
     private final AuthenticationService authenticationService ;
 
     @PostMapping("/login")
-    ApiResponse<AuthenticationResponse> authenticate (@RequestBody AuthenticationRequest request){
+    ApiResponse<AuthenticationResponse> authenticate (@RequestBody AuthenticationRequest request) throws ParseException, JOSEException{
         AuthenticationResponse res = authenticationService.authenticate(request);
      return ApiResponse.<AuthenticationResponse>builder()
              .result(res)
              .build();
+    }
+
+    @PostMapping("/logout")
+    ApiResponse<Void> logout (@RequestBody LogoutRequest request) throws ParseException, JOSEException{
+         authenticationService.logout(request);
+        return ApiResponse.<Void>builder()
+
+                .build();
     }
 
     @PostMapping("/introspect")

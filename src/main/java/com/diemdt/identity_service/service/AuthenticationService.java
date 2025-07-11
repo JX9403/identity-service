@@ -2,12 +2,15 @@ package com.diemdt.identity_service.service;
 
 import com.diemdt.identity_service.dto.request.AuthenticationRequest;
 import com.diemdt.identity_service.dto.request.IntrospectRequest;
+import com.diemdt.identity_service.dto.request.LogoutRequest;
 import com.diemdt.identity_service.dto.response.AuthenticationResponse;
 import com.diemdt.identity_service.dto.response.IntrospectResponse;
 import com.diemdt.identity_service.dto.response.UserResponse;
+import com.diemdt.identity_service.entity.InvalidatedToken;
 import com.diemdt.identity_service.entity.User;
 import com.diemdt.identity_service.exception.AppException;
 import com.diemdt.identity_service.exception.ErrorCode;
+import com.diemdt.identity_service.repository.InvalidatedTokenRepository;
 import com.diemdt.identity_service.repository.UserRepository;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -16,6 +19,7 @@ import com.nimbusds.jwt.JWTClaimNames;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
+import lombok.Singular;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import javax.swing.*;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.Instant;
@@ -31,12 +36,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Date;
 import java.util.StringJoiner;
+import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
     public final UserRepository userRepository ;
+    public final InvalidatedTokenRepository invalidatedTokenRepository ;
     private final PasswordEncoder passwordEncoder;
     @NonFinal
     @Value("${jwt.signerKey}")
@@ -71,6 +78,7 @@ public class AuthenticationService {
                 .expirationTime(new Date(
                         Instant.now().plus(1, ChronoUnit.HOURS).toEpochMilli()
                 ))
+                .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
                 .build();
 
@@ -92,17 +100,15 @@ public class AuthenticationService {
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
 
         var token = request.getToken();
-
-        JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
-
-        SignedJWT signedJWT = SignedJWT.parse(token);
-
-        Date expirationTime = signedJWT.getJWTClaimsSet().getExpirationTime();
-
-       boolean verified =  signedJWT.verify(verifier);
+        boolean isValid = true ;
+        try {
+            verifyToken(token) ;
+        } catch (AppException e){
+            isValid = false ;
+        }
 
        return IntrospectResponse.builder()
-               .valid(verified && expirationTime.after(new Date())).build();
+               .valid(isValid).build();
     }
 
     private String buildScope(User user) {
@@ -116,5 +122,36 @@ public class AuthenticationService {
             });
 
         return stringJoiner.toString();
+    }
+
+    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+        var signToken = verifyToken(request.getToken());
+        String jit = signToken.getJWTClaimsSet().getJWTID() ;
+        Date expiration = signToken.getJWTClaimsSet().getExpirationTime() ;
+
+        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
+                .id(jit)
+                .expiration(expiration)
+                .build();
+
+        invalidatedTokenRepository.save(invalidatedToken) ;
+    }
+
+    private SignedJWT verifyToken(String token) throws JOSEException, ParseException {
+        JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
+
+        SignedJWT signedJWT = SignedJWT.parse(token);
+
+        Date expirationTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+
+        boolean verified =  signedJWT.verify(verifier);
+
+        if( !(verified && expirationTime.after(new Date())))
+            throw new AppException(ErrorCode.UNAUTHENTICATED) ;
+
+        if(invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID())){
+            throw new AppException(ErrorCode.UNAUTHENTICATED) ;
+        }
+        return signedJWT ;
     }
 }
